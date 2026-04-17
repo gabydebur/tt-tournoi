@@ -71,7 +71,7 @@ export interface TournamentPayload {
 
 // ─── Series ───────────────────────────────────────────────────────────────────
 
-export type PhaseFormat = 'POOL_ONLY' | 'POOL_THEN_ELIMINATION' | 'ELIMINATION_ONLY';
+export type PhaseFormat = 'POOLS_ONLY' | 'POOLS_THEN_ELIMINATION' | 'ELIMINATION_ONLY';
 
 export interface Series {
   id: number;

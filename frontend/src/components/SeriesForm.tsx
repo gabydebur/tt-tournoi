@@ -10,8 +10,8 @@ interface SeriesFormProps {
 }
 
 const phaseFormatOptions: { value: PhaseFormat; label: string }[] = [
-  { value: 'POOL_ONLY', label: 'Poules uniquement' },
-  { value: 'POOL_THEN_ELIMINATION', label: 'Poules puis élimination' },
+  { value: 'POOLS_ONLY', label: 'Poules uniquement' },
+  { value: 'POOLS_THEN_ELIMINATION', label: 'Poules puis élimination' },
   { value: 'ELIMINATION_ONLY', label: 'Élimination directe' },
 ];
 
@@ -25,7 +25,7 @@ export default function SeriesForm({
     name: initial?.name ?? '',
     max_points: initial?.max_points ?? 1000,
     min_points: initial?.min_points ?? undefined,
-    phase_format: initial?.phase_format ?? 'POOL_THEN_ELIMINATION',
+    phase_format: initial?.phase_format ?? 'POOLS_THEN_ELIMINATION',
     sets_to_win_match: initial?.sets_to_win_match ?? 3,
     sets_to_win_final: initial?.sets_to_win_final ?? 3,
     players_per_pool: initial?.players_per_pool ?? 4,
