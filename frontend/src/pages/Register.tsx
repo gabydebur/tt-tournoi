@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { Trophy, AlertCircle, CheckCircle } from 'lucide-react';
 import type { RegisterPayload } from '../types';
@@ -51,9 +52,20 @@ export default function Register() {
       setSuccess(true);
       setTimeout(() => navigate('/player'), 1500);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Erreur lors de l'inscription. Email peut-être déjà utilisé."
-      );
+      let message = "Erreur lors de l'inscription.";
+      if (err instanceof AxiosError) {
+        const detail = err.response?.data?.detail;
+        if (typeof detail === 'string') {
+          // Traduire les messages connus
+          const translations: Record<string, string> = {
+            'Email already registered': 'Cet email est déjà utilisé.',
+          };
+          message = translations[detail] ?? detail;
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
