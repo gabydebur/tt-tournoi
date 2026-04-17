@@ -11,7 +11,12 @@ from app.models.registration import Registration, RegistrationStatus
 from app.models.series import Series
 from app.models.tournament import Tournament, TournamentStatus
 from app.models.user import User, UserRole
-from app.schemas.registration import RegistrationDetailResponse, RegistrationResponse
+from app.schemas.registration import (
+    RegistrationDetailResponse,
+    RegistrationResponse,
+    RegPlayer,
+    RegSeries,
+)
 
 router = APIRouter(tags=["registrations"])
 
@@ -52,6 +57,23 @@ async def list_registrations(
 
     out = []
     for r in registrations:
+        player = None
+        if r.player:
+            player = RegPlayer(
+                id=r.player.id,
+                first_name=r.player.first_name,
+                last_name=r.player.last_name,
+                points=r.player.points,
+                club=r.player.club,
+                fft_license=r.player.fft_license,
+            )
+        series = None
+        if r.series:
+            series = RegSeries(
+                id=r.series.id,
+                name=r.series.name,
+                max_points=r.series.max_points,
+            )
         out.append(
             RegistrationDetailResponse(
                 id=r.id,
@@ -59,9 +81,8 @@ async def list_registrations(
                 series_id=r.series_id,
                 status=r.status,
                 registered_at=r.registered_at,
-                player_first_name=r.player.first_name if r.player else None,
-                player_last_name=r.player.last_name if r.player else None,
-                series_name=r.series.name if r.series else None,
+                player=player,
+                series=series,
             )
         )
     return out

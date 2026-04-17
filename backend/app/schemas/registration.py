@@ -16,6 +16,23 @@ class RegistrationResponse(BaseModel):
     registered_at: datetime
 
 
+class RegPlayer(BaseModel):
+    """Nested player info inside a registration (for admin/referee views)."""
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    points: int
+    club: str | None = None
+    fft_license: str | None = None
+
+
+class RegSeries(BaseModel):
+    """Nested series info inside a registration."""
+    id: uuid.UUID
+    name: str
+    max_points: int
+
+
 class RegistrationDetailResponse(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -24,7 +41,6 @@ class RegistrationDetailResponse(BaseModel):
     series_id: uuid.UUID
     status: RegistrationStatus
     registered_at: datetime
-    player_first_name: str | None = None
-    player_last_name: str | None = None
-    series_name: str | None = None
+    player: RegPlayer | None = None
+    series: RegSeries | None = None
     tournament_name: str | None = None

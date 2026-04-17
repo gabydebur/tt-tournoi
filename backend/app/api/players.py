@@ -31,7 +31,13 @@ async def my_registrations(
     from sqlalchemy.orm import selectinload
 
     from app.models.registration import Registration
-    from app.schemas.registration import RegistrationDetailResponse
+    from app.models.series import Series
+    from app.models.tournament import Tournament
+    from app.schemas.registration import (
+        RegistrationDetailResponse,
+        RegPlayer,
+        RegSeries,
+    )
 
     if current_user.player is None:
         return []
@@ -40,14 +46,32 @@ async def my_registrations(
         select(Registration)
         .where(Registration.player_id == current_user.player.id)
         .options(
-            selectinload(Registration.series),
+            selectinload(Registration.series).selectinload(Series.tournament),
+            selectinload(Registration.player),
         )
     )
     regs = result.scalars().all()
 
     out = []
     for r in regs:
-        series = r.series
+        series = None
+        tournament_name = None
+        if r.series:
+            series = RegSeries(id=r.series.id, name=r.series.name, max_points=r.series.max_points)
+            if r.series.tournament:
+                tournament_name = r.series.tournament.name
+
+        player = None
+        if r.player:
+            player = RegPlayer(
+                id=r.player.id,
+                first_name=r.player.first_name,
+                last_name=r.player.last_name,
+                points=r.player.points,
+                club=r.player.club,
+                fft_license=r.player.fft_license,
+            )
+
         out.append(
             RegistrationDetailResponse(
                 id=r.id,
@@ -55,7 +79,9 @@ async def my_registrations(
                 series_id=r.series_id,
                 status=r.status,
                 registered_at=r.registered_at,
-                series_name=series.name if series else None,
+                player=player,
+                series=series,
+                tournament_name=tournament_name,
             )
         )
     return out
