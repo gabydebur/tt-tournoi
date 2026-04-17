@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Trophy, Mail, Lock, AlertCircle } from 'lucide-react';
+
+const DESTINATIONS = { PLAYER: '/player', REFEREE: '/referee', ADMIN: '/admin' } as const;
 
 export default function Login() {
   const { login, isAuthenticated, role } = useAuth();
@@ -14,11 +16,12 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Already logged in
-  if (isAuthenticated && role) {
-    const destinations = { PLAYER: '/player', REFEREE: '/referee', ADMIN: '/admin' };
-    navigate(from || destinations[role] || '/player', { replace: true });
-  }
+  // Redirect as soon as auth state is ready (avoids calling navigate() during render)
+  useEffect(() => {
+    if (isAuthenticated && role) {
+      navigate(from || DESTINATIONS[role] || '/player', { replace: true });
+    }
+  }, [isAuthenticated, role, from, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,21 +29,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(email, password);
-      const destinations: Record<string, string> = {
-        PLAYER: '/player',
-        REFEREE: '/referee',
-        ADMIN: '/admin',
-      };
-      // role might be available now from token
-      const storedToken = localStorage.getItem('access_token');
-      let dest = '/player';
-      if (storedToken) {
-        try {
-          const payload = JSON.parse(atob(storedToken.split('.')[1]));
-          dest = destinations[payload.role] || '/player';
-        } catch { /* ignore */ }
-      }
-      navigate(from || dest, { replace: true });
+      // Redirection handled by the useEffect above once context is refreshed
     } catch {
       setError('Email ou mot de passe incorrect.');
     } finally {

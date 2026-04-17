@@ -43,7 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  const role = token ? decodeTokenRole(token) : null;
+  // Prefer role from fetched user object; fall back to decoded token (for initial render before /me returns)
+  const role: Role | null = user?.role ?? (token ? decodeTokenRole(token) : null);
 
   const fetchMe = useCallback(async (_t: string) => {
     try {

@@ -12,7 +12,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.database import get_db
 from app.models.player import Player
 from app.models.user import User, UserRole
-from app.schemas.auth import LoginRequest, MeResponse, PlayerOut, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import LoginRequest, MeResponse, PlayerOut, RegisterRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,7 +46,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
     await db.flush()
 
     token = create_access_token(
-        data={"sub": str(user.id)},
+        data={"sub": str(user.id), "role": user.role.value},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return TokenResponse(access_token=token)
@@ -66,7 +66,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> Token
         raise HTTPException(status_code=400, detail="Account is disabled")
 
     token = create_access_token(
-        data={"sub": str(user.id)},
+        data={"sub": str(user.id), "role": user.role.value},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return TokenResponse(access_token=token)
@@ -74,12 +74,6 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> Token
 
 @router.get("/me", response_model=MeResponse)
 async def me(current_user: User = Depends(get_current_user)) -> MeResponse:
-    user_out = UserOut(
-        id=str(current_user.id),
-        email=current_user.email,
-        role=current_user.role,
-        is_active=current_user.is_active,
-    )
     player_out: PlayerOut | None = None
     if current_user.player:
         p = current_user.player
@@ -91,4 +85,10 @@ async def me(current_user: User = Depends(get_current_user)) -> MeResponse:
             points=p.points,
             club=p.club,
         )
-    return MeResponse(user=user_out, player=player_out)
+    return MeResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        player=player_out,
+    )

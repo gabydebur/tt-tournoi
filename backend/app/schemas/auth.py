@@ -46,5 +46,8 @@ class PlayerOut(BaseModel):
 class MeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
-    user: UserOut
-    player: PlayerOut | None
+    id: str
+    email: str
+    role: UserRole
+    is_active: bool
+    player: PlayerOut | None = None
