@@ -10,5 +10,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     ALGORITHM: str = "HS256"
 
+    # Default admin bootstrap (created on first startup if not existing)
+    SEED_ADMIN_ENABLED: bool = True
+    SEED_ADMIN_EMAIL: str = "admin@admin.com"
+    SEED_ADMIN_PASSWORD: str = "admin"
+
 
 settings = Settings()
