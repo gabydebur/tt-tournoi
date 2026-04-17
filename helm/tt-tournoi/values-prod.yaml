@@ -1,0 +1,41 @@
+# Production overrides for tt-tournoi
+# Usage: helm upgrade --install tt-tournoi ./tt-tournoi -f values-prod.yaml
+
+backend:
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  env:
+    # Override SECRET_KEY with a strong secret in production
+    # Recommended: use an external secrets manager (e.g. Vault, AWS Secrets Manager)
+    SECRET_KEY: ""  # REQUIRED: set via --set backend.env.SECRET_KEY=<value> or external secret
+    ACCESS_TOKEN_EXPIRE_MINUTES: 480
+
+frontend:
+  replicaCount: 2
+
+ingress:
+  tls:
+    enabled: true
+    secretName: tt-tournoi-tls
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+postgresql:
+  auth:
+    # Override password with a strong secret in production
+    password: ""  # REQUIRED: set via --set postgresql.auth.password=<value>
+  primary:
+    persistence:
+      size: 20Gi

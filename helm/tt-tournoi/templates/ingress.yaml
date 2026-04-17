@@ -1,0 +1,58 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tt-tournoi.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tt-tournoi.labels" . | nindent 4 }}
+  annotations:
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-set-headers: "{{ .Release.Namespace }}/{{ include "tt-tournoi.fullname" . }}-ws-headers"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    {{- if .Values.ingress.tls.enabled }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # API routes → backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tt-tournoi.fullname" . }}-backend
+                port:
+                  name: http
+          # WebSocket routes → backend
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tt-tournoi.fullname" . }}-backend
+                port:
+                  name: http
+          # Everything else → frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tt-tournoi.fullname" . }}-frontend
+                port:
+                  name: http
+{{- end }}

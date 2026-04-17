@@ -1,0 +1,77 @@
+# Global settings
+global:
+  imageRegistry: ""
+  storageClass: ""
+
+# Backend configuration
+backend:
+  replicaCount: 1
+
+  image:
+    repository: tt-tournoi/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  env:
+    SECRET_KEY: "changeme-replace-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: 480
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: tt-tournoi/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: tt-tournoi.local
+  tls:
+    enabled: false
+    secretName: tt-tournoi-tls
+
+# PostgreSQL dependency configuration (bitnami/postgresql)
+postgresql:
+  auth:
+    username: tt_user
+    password: changeme
+    database: tt_tournoi
+  primary:
+    persistence:
+      size: 5Gi
+
+# Redis dependency configuration (bitnami/redis)
+redis:
+  auth:
+    enabled: false
+  architecture: standalone
+  master:
+    persistence:
+      size: 1Gi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
