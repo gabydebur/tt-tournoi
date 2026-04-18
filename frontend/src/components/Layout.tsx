@@ -40,55 +40,69 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-blue-600 text-white shadow-md">
+    <div className="min-h-screen bg-[#fafafa] flex flex-col">
+      {/* Header — sleek dark pill sitting on a light app shell */}
+      <header className="sticky top-0 z-30 bg-[#0b0d17]/95 backdrop-blur-xl text-slate-100 border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-              <Trophy size={24} className="text-yellow-400" />
-              <span>TT Tournoi</span>
+            <Link to="/" className="flex items-center gap-2.5 font-semibold">
+              <span className="relative">
+                <span className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-fuchsia-500 rounded-lg blur-md opacity-50" />
+                <span className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500">
+                  <Trophy size={16} className="text-white" strokeWidth={2.5} />
+                </span>
+              </span>
+              <span className="font-display text-lg tracking-tight">
+                <span className="text-gradient-violet">TT Tournoi</span>
+              </span>
             </Link>
 
             {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname.startsWith(item.to)
-                      ? 'bg-blue-700 text-white'
-                      : 'text-blue-100 hover:bg-blue-500'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </Link>
-              ))}
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const active = location.pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-white/10 text-white shadow-inner shadow-violet-500/20'
+                        : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* User info & logout */}
             <div className="hidden md:flex items-center gap-3">
               {user && (
-                <span className="text-sm text-blue-100">
-                  {user.player?.first_name} {user.player?.last_name}
-                  <span className="ml-1 text-xs bg-blue-500 px-1.5 py-0.5 rounded">{role}</span>
+                <span className="text-xs text-slate-300 flex items-center gap-2">
+                  <span className="text-slate-400">
+                    {user.player?.first_name} {user.player?.last_name}
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-violet-200">
+                    {role}
+                  </span>
                 </span>
               )}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1 text-sm text-blue-100 hover:text-white transition-colors"
+                className="flex items-center gap-1 text-sm text-slate-300 hover:text-white transition-colors"
               >
                 <LogOut size={16} />
-                Déconnexion
+                <span className="sr-only md:not-sr-only">Déconnexion</span>
               </button>
             </div>
 
             {/* Mobile hamburger */}
             <button
-              className="md:hidden p-2"
+              className="md:hidden p-2 text-slate-200"
               onClick={() => setMobileOpen(!mobileOpen)}
             >
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
@@ -98,12 +112,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-blue-500 px-4 pb-4 pt-2 space-y-1">
+          <div className="md:hidden border-t border-white/5 px-4 pb-4 pt-2 space-y-1 bg-[#0b0d17]">
             {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:bg-blue-500"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/5"
                 onClick={() => setMobileOpen(false)}
               >
                 {item.icon}
@@ -112,7 +126,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:bg-blue-500 w-full text-left"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/5 w-full text-left"
             >
               <LogOut size={16} />
               Déconnexion
@@ -126,7 +140,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="bg-white border-t border-gray-200 py-3 text-center text-xs text-gray-400">
+      <footer className="bg-white/60 backdrop-blur-sm border-t border-slate-200 py-3 text-center text-xs text-slate-400">
         TT Tournoi &copy; {new Date().getFullYear()} — Gestion de tournois de tennis de table
       </footer>
     </div>

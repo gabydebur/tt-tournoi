@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Authenticate from './pages/Authenticate';
 import Register from './pages/Register';
 import PlayerDashboard from './pages/PlayerDashboard';
 import RefereeDashboard from './pages/RefereeDashboard';
@@ -38,6 +39,7 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/authenticate" element={<Authenticate />} />
       <Route path="/register" element={<Register />} />
       <Route path="/display/:tournamentId" element={<LiveDisplay />} />
 

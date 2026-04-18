@@ -11,6 +11,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
+  setBackendToken: (accessToken: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,6 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(payload.email, payload.password);
   }, [login]);
 
+  const setBackendToken = useCallback(async (accessToken: string) => {
+    localStorage.setItem('access_token', accessToken);
+    setToken(accessToken);
+    const me = await authApi.me();
+    setUser(me);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('access_token');
     setToken(null);
@@ -99,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        setBackendToken,
       }}
     >
       {children}

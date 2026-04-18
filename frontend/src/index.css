@@ -32,10 +32,69 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400;
   }
+
+  /* Dark scrollbars on dark surfaces */
+  .dark-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dark-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+  }
+  .dark-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
 }
 
 @layer utilities {
   .animate-pulse-fast {
     animation: pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  .font-display {
+    font-family: 'Instrument Sans', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .text-gradient-violet {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-violet-200 to-fuchsia-200;
+  }
+
+  .text-gradient-bright {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-fuchsia-400;
+  }
+
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-2xl border border-white/10;
+    box-shadow: 0 0 60px -15px rgba(99, 102, 241, 0.3);
+  }
+
+  .glass-card-light {
+    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-sm;
+  }
+
+  .btn-gradient {
+    @apply relative overflow-hidden bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white font-medium shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/50 hover:brightness-110 active:brightness-95;
+  }
+
+  /* Stytch UI override helpers — applied via class on the wrapper div */
+  .stytch-dark-theme .StytchWidget-root,
+  .stytch-dark-theme [data-testid="stytch-root"] {
+    background: transparent !important;
+  }
+}
+
+/* Stytch widget overrides (the component renders a fairly opaque root) */
+.stytch-dark-theme {
+  --stytch-input-background-color: rgba(255, 255, 255, 0.04);
+  --stytch-input-border-color: rgba(255, 255, 255, 0.12);
+  --stytch-input-placeholder-color: rgba(248, 250, 252, 0.4);
+  --stytch-text-primary-color: #f8fafc;
+  --stytch-text-secondary-color: rgba(248, 250, 252, 0.7);
+  --stytch-primary-color: #a78bfa;
+}
+
+.stytch-dark-theme input,
+.stytch-dark-theme button[type="submit"] {
+  border-radius: 0.75rem !important;
 }

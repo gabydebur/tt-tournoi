@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     auth,
+    auth_stytch,
     demo,
     matches,
     players,
@@ -62,6 +63,7 @@ app.add_middleware(
 
 # API routes
 app.include_router(auth.router, prefix="/api")
+app.include_router(auth_stytch.router, prefix="/api")
 app.include_router(players.router, prefix="/api")
 app.include_router(tournaments.router, prefix="/api")
 app.include_router(series.router, prefix="/api")

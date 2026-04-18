@@ -19,4 +19,11 @@ export const authApi = {
     const { data } = await apiClient.get<User>('/api/auth/me');
     return data;
   },
+
+  stytchExchange: async (session_jwt: string): Promise<LoginResponse> => {
+    const { data } = await apiClient.post<LoginResponse>('/api/auth/stytch-exchange', {
+      session_jwt,
+    });
+    return data;
+  },
 };
