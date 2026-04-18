@@ -232,7 +232,7 @@ async def confirm_pools(
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found")
 
-    # Load all DRAFT pools with series info
+    # Load all DRAFT pools with series + players info
     result = await db.execute(
         select(Pool)
         .join(Series, Pool.series_id == Series.id)
@@ -240,12 +240,24 @@ async def confirm_pools(
             Series.tournament_id == tournament_id,
             Pool.status == PoolStatus.DRAFT,
         )
-        .options(selectinload(Pool.series))
+        .options(
+            selectinload(Pool.series),
+            selectinload(Pool.pool_players),
+        )
     )
     pools = result.scalars().all()
 
     matches_created = 0
     for pool in pools:
+        player_count = len(pool.pool_players)
+        if player_count < 2:
+            # Orphan single-player (or empty) pool — no matches playable.
+            # Mark as FINISHED so the lone player automatically qualifies for
+            # the elimination bracket.
+            pool.status = PoolStatus.FINISHED
+            db.add(pool)
+            continue
+
         pool.status = PoolStatus.CONFIRMED
         db.add(pool)
         # Create matches
@@ -258,7 +270,7 @@ async def confirm_pools(
 
     return ConfirmPoolsSummary(
         tournament_id=tournament_id,
-        pools_confirmed=len(pools),
+        pools_confirmed=sum(1 for p in pools if p.status == PoolStatus.CONFIRMED),
         matches_created=matches_created,
     )
 

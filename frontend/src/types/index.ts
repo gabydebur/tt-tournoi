@@ -3,7 +3,7 @@
 export type Role = 'PLAYER' | 'REFEREE' | 'ADMIN';
 
 export interface Player {
-  id: number;
+  id: string;
   first_name: string;
   last_name: string;
   fft_license?: string;
@@ -13,7 +13,7 @@ export interface Player {
 }
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   role: Role;
   player: Player;
@@ -51,7 +51,7 @@ export type TournamentStatus =
   | 'FINISHED';
 
 export interface Tournament {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   location?: string;
@@ -76,8 +76,8 @@ export interface TournamentPayload {
 export type PhaseFormat = 'POOLS_ONLY' | 'POOLS_THEN_ELIMINATION' | 'ELIMINATION_ONLY';
 
 export interface Series {
-  id: number;
-  tournament_id: number;
+  id: string;
+  tournament_id: string;
   name: string;
   max_points: number;
   min_points?: number;
@@ -102,10 +102,10 @@ export interface SeriesPayload {
 export type RegistrationStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED';
 
 export interface Registration {
-  id: number;
+  id: string;
   player: Player;
   series: Series;
-  tournament_id: number;
+  tournament_id: string;
   status: RegistrationStatus;
   registered_at: string;
 }
@@ -115,8 +115,8 @@ export interface Registration {
 export type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
 
 export interface TournamentTable {
-  id: number;
-  tournament_id: number;
+  id: string;
+  tournament_id: string;
   number: number;
   status: TableStatus;
   current_match?: Match;
@@ -140,8 +140,8 @@ export interface SetScore {
 }
 
 export interface Match {
-  id: number;
-  tournament_id: number;
+  id: string;
+  tournament_id: string;
   series: Series;
   player1: Player;
   player2: Player;
@@ -179,7 +179,7 @@ export interface StandingsPool {
 }
 
 export interface SeriesStandings {
-  series_id: number;
+  series_id: string;
   pools: StandingsPool[];
 }
 
@@ -195,7 +195,7 @@ export interface WsEvent {
 // ─── Bracket ─────────────────────────────────────────────────────────────────
 
 export interface BracketMatch {
-  id: number;
+  id: string;
   player1?: Player;
   player2?: Player;
   winner?: Player;
@@ -214,7 +214,7 @@ export interface BracketRound {
 export type PoolStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'FINISHED';
 
 export interface PoolPlayerBrief {
-  id: number;
+  id: string;
   first_name: string;
   last_name: string;
   points: number;
@@ -222,33 +222,33 @@ export interface PoolPlayerBrief {
 }
 
 export interface PoolData {
-  id: number;
+  id: string;
   name: string;
   status: PoolStatus;
-  table_id: number | null;
-  series_id: number;
+  table_id: string | null;
+  series_id: string;
   series_name: string;
   players: PoolPlayerBrief[];
 }
 
 export interface SwapPlayersPayload {
-  pool_a_id: number;
-  player_a_id: number;
-  pool_b_id: number;
-  player_b_id: number;
+  pool_a_id: string;
+  player_a_id: string;
+  pool_b_id: string;
+  player_b_id: string;
 }
 
 // ─── Match suggestions (v2) ──────────────────────────────────────────────────
 
 export interface SuggestionPoolBrief {
-  id: number;
+  id: string;
   name: string;
   series_name: string;
   players: PoolPlayerBrief[];
 }
 
 export interface SuggestionEliminationBrief {
-  id: number;
+  id: string;
   series_name: string;
   round: MatchRound;
   player1: PoolPlayerBrief;
@@ -256,26 +256,26 @@ export interface SuggestionEliminationBrief {
 }
 
 export interface AvailableTableBrief {
-  id: number;
+  id: string;
   number: number;
   status: 'FREE';
 }
 
 export interface ActiveTableCurrentPool {
-  id: number;
+  id: string;
   name: string;
   series_name: string;
 }
 
 export interface ActiveTableCurrentMatch {
-  id: number;
+  id: string;
   player1: PoolPlayerBrief;
   player2: PoolPlayerBrief;
   sets: SetScore[];
 }
 
 export interface ActiveTableBrief {
-  id: number;
+  id: string;
   number: number;
   current_pool: ActiveTableCurrentPool | null;
   current_match: ActiveTableCurrentMatch | null;
@@ -292,7 +292,7 @@ export interface MatchSuggestions {
 // ─── Live display state ──────────────────────────────────────────────────────
 
 export interface DisplayActiveSeries {
-  id: number;
+  id: string;
   name: string;
   phase: 'POOLS' | 'ELIMINATION';
   pools_in_progress: number;
@@ -310,7 +310,7 @@ export interface DisplayActiveMatch {
 }
 
 export interface DisplayState {
-  tournament: { id: number; name: string; status: TournamentStatus };
+  tournament: { id: string; name: string; status: TournamentStatus };
   active_series: DisplayActiveSeries[];
   active_matches: DisplayActiveMatch[];
 }
@@ -318,7 +318,7 @@ export interface DisplayState {
 // ─── Demo seed ───────────────────────────────────────────────────────────────
 
 export interface DemoSeedResponse {
-  tournament_id: number;
+  tournament_id: string;
   tournament_name: string;
   player_count: number;
   registration_count: number;

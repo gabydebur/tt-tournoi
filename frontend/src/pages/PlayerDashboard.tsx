@@ -45,7 +45,7 @@ function RegisterModal({ tournament, onClose }: RegisterModalProps) {
     queryKey: ['series', tournament.id],
     queryFn: () => seriesApi.list(tournament.id),
   });
-  const [selectedSeries, setSelectedSeries] = useState<number | null>(null);
+  const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({

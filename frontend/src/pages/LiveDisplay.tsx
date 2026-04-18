@@ -137,7 +137,7 @@ export default function LiveDisplay() {
     id?: string;
     tournamentId?: string;
   }>();
-  const tournamentId = Number(idFromRoute ?? id);
+  const tournamentId = idFromRoute ?? id ?? '';
   const [clock, setClock] = useState(new Date());
 
   useEffect(() => {
@@ -148,7 +148,7 @@ export default function LiveDisplay() {
   const { data } = useQuery({
     queryKey: ['display-state', tournamentId],
     queryFn: () => displayApi.getState(tournamentId),
-    enabled: !!tournamentId && !Number.isNaN(tournamentId),
+    enabled: !!tournamentId,
     refetchInterval: 2000,
   });
 

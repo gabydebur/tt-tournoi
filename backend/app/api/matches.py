@@ -328,6 +328,50 @@ async def submit_result(
                     str(series.tournament_id),
                     {"event": "pool_finished", "pool_id": str(pool.id)},
                 )
+
+            # If all pools of the series are FINISHED and the series has an
+            # elimination phase, auto-generate the bracket.
+            if series and series.phase_format == PhaseFormat.POOLS_THEN_ELIMINATION:
+                all_pools_result = await db.execute(
+                    select(Pool)
+                    .where(Pool.series_id == series.id)
+                    .options(
+                        selectinload(Pool.pool_players).selectinload(PoolPlayer.player)
+                    )
+                )
+                all_pools = list(all_pools_result.scalars().all())
+                if all_pools and all(
+                    p.status == PoolStatus.FINISHED for p in all_pools
+                ):
+                    # Check we have not already generated elimination matches
+                    existing_elim_result = await db.execute(
+                        select(Match).where(
+                            Match.series_id == series.id,
+                            Match.pool_id.is_(None),
+                        )
+                    )
+                    if existing_elim_result.first() is None:
+                        from app.services.bracket_generator import (
+                            generate_elimination_bracket,
+                        )
+
+                        pool_results = [
+                            (p, list(p.pool_players)) for p in all_pools
+                        ]
+                        await generate_elimination_bracket(
+                            series=series,
+                            pool_results=pool_results,
+                            db=db,
+                            top_n_per_pool=2,
+                            day_number=2,
+                        )
+                        await manager.broadcast(
+                            str(series.tournament_id),
+                            {
+                                "event": "elimination_generated",
+                                "series_id": str(series.id),
+                            },
+                        )
     else:
         # Elimination or standalone match — free the table
         if match_table_id:

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 interface PoolsManagementProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 const statusCfg: Record<PoolStatus, { label: string; cls: string }> = {
@@ -34,15 +34,15 @@ function PoolStatusBadge({ status }: { status: PoolStatus }) {
 }
 
 interface SelectedPlayer {
-  poolId: number;
-  playerId: number;
-  seriesId: number;
+  poolId: string;
+  playerId: string;
+  seriesId: string;
 }
 
 export default function PoolsManagement({ tournamentId }: PoolsManagementProps) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<SelectedPlayer[]>([]);
-  const [tableChoices, setTableChoices] = useState<Record<number, number | ''>>({});
+  const [tableChoices, setTableChoices] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const { data: pools, isLoading } = useQuery({
@@ -98,7 +98,7 @@ export default function PoolsManagement({ tournamentId }: PoolsManagementProps) 
   });
 
   const startMutation = useMutation({
-    mutationFn: ({ poolId, tableId }: { poolId: number; tableId: number }) =>
+    mutationFn: ({ poolId, tableId }: { poolId: string; tableId: string }) =>
       poolsApi.start(poolId, tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pools', tournamentId] });
@@ -110,7 +110,7 @@ export default function PoolsManagement({ tournamentId }: PoolsManagementProps) 
 
   // Group pools by series
   const poolsBySeries = useMemo(() => {
-    const map = new Map<number, { seriesName: string; pools: PoolData[] }>();
+    const map = new Map<string, { seriesName: string; pools: PoolData[] }>();
     for (const p of poolList) {
       if (!map.has(p.series_id)) {
         map.set(p.series_id, { seriesName: p.series_name, pools: [] });
@@ -123,10 +123,10 @@ export default function PoolsManagement({ tournamentId }: PoolsManagementProps) 
   const hasDraft = poolList.some((p) => p.status === 'DRAFT');
   const allDraft = poolList.length > 0 && poolList.every((p) => p.status === 'DRAFT');
 
-  const isSelected = (poolId: number, playerId: number) =>
+  const isSelected = (poolId: string, playerId: string) =>
     selected.some((s) => s.poolId === poolId && s.playerId === playerId);
 
-  const togglePlayer = (pool: PoolData, playerId: number) => {
+  const togglePlayer = (pool: PoolData, playerId: string) => {
     if (pool.status !== 'DRAFT') return;
     setError(null);
     const already = isSelected(pool.id, playerId);
@@ -309,9 +309,7 @@ export default function PoolsManagement({ tournamentId }: PoolsManagementProps) 
                           onChange={(e) =>
                             setTableChoices({
                               ...tableChoices,
-                              [pool.id]: e.target.value
-                                ? Number(e.target.value)
-                                : '',
+                              [pool.id]: e.target.value,
                             })
                           }
                           className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -329,7 +327,7 @@ export default function PoolsManagement({ tournamentId }: PoolsManagementProps) 
                           }
                           onClick={() => {
                             const tid = tableChoices[pool.id];
-                            if (tid) startMutation.mutate({ poolId: pool.id, tableId: Number(tid) });
+                            if (tid) startMutation.mutate({ poolId: pool.id, tableId: tid });
                           }}
                           className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-md transition-colors disabled:opacity-40"
                         >

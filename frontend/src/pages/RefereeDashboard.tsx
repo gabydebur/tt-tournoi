@@ -34,10 +34,10 @@ function PoolSuggestionCard({
 }: {
   pool: SuggestionPoolBrief;
   tables: AvailableTableBrief[];
-  onStart: (poolId: number, tableId: number) => void;
+  onStart: (poolId: string, tableId: string) => void;
   isStarting: boolean;
 }) {
-  const [tableId, setTableId] = useState<number | ''>('');
+  const [tableId, setTableId] = useState<string>('');
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
@@ -59,7 +59,7 @@ function PoolSuggestionCard({
       <div className="flex items-center gap-2">
         <select
           value={tableId}
-          onChange={(e) => setTableId(e.target.value ? Number(e.target.value) : '')}
+          onChange={(e) => setTableId(e.target.value)}
           className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">Table...</option>
@@ -71,7 +71,7 @@ function PoolSuggestionCard({
         </select>
         <button
           disabled={!tableId || isStarting}
-          onClick={() => tableId && onStart(pool.id, Number(tableId))}
+          onClick={() => tableId && onStart(pool.id, tableId)}
           className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-md transition-colors disabled:opacity-40"
         >
           {isStarting ? (
@@ -96,10 +96,10 @@ function EliminationSuggestionCard({
 }: {
   match: SuggestionEliminationBrief;
   tables: AvailableTableBrief[];
-  onStart: (matchId: number, tableId: number) => void;
+  onStart: (matchId: string, tableId: string) => void;
   isStarting: boolean;
 }) {
-  const [tableId, setTableId] = useState<number | ''>('');
+  const [tableId, setTableId] = useState<string>('');
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
@@ -116,7 +116,7 @@ function EliminationSuggestionCard({
       <div className="flex items-center gap-2">
         <select
           value={tableId}
-          onChange={(e) => setTableId(e.target.value ? Number(e.target.value) : '')}
+          onChange={(e) => setTableId(e.target.value)}
           className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">Table...</option>
@@ -128,7 +128,7 @@ function EliminationSuggestionCard({
         </select>
         <button
           disabled={!tableId || isStarting}
-          onClick={() => tableId && onStart(match.id, Number(tableId))}
+          onClick={() => tableId && onStart(match.id, tableId)}
           className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-md transition-colors disabled:opacity-40"
         >
           {isStarting ? (
@@ -250,10 +250,10 @@ function ActiveTableCard({
 
 export default function RefereeDashboard() {
   const queryClient = useQueryClient();
-  const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const [resultTable, setResultTable] = useState<ActiveTableBrief | null>(null);
-  const [startingPoolId, setStartingPoolId] = useState<number | null>(null);
-  const [startingMatchId, setStartingMatchId] = useState<number | null>(null);
+  const [startingPoolId, setStartingPoolId] = useState<string | null>(null);
+  const [startingMatchId, setStartingMatchId] = useState<string | null>(null);
 
   const { data: tournaments } = useQuery({
     queryKey: ['tournaments'],
@@ -279,7 +279,7 @@ export default function RefereeDashboard() {
   };
 
   const startPoolMutation = useMutation({
-    mutationFn: ({ poolId, tableId }: { poolId: number; tableId: number }) =>
+    mutationFn: ({ poolId, tableId }: { poolId: string; tableId: string }) =>
       poolsApi.start(poolId, tableId),
     onMutate: ({ poolId }) => setStartingPoolId(poolId),
     onSettled: () => {
@@ -289,7 +289,7 @@ export default function RefereeDashboard() {
   });
 
   const startMatchMutation = useMutation({
-    mutationFn: ({ matchId, tableId }: { matchId: number; tableId: number }) =>
+    mutationFn: ({ matchId, tableId }: { matchId: string; tableId: string }) =>
       matchesApi.start(matchId, tableId),
     onMutate: ({ matchId }) => setStartingMatchId(matchId),
     onSettled: () => {
@@ -302,10 +302,10 @@ export default function RefereeDashboard() {
   const resultMatch: Match | null = resultTable?.current_match
     ? ({
         id: resultTable.current_match.id,
-        tournament_id: tournamentId ?? 0,
+        tournament_id: tournamentId ?? '',
         series: {
-          id: 0,
-          tournament_id: tournamentId ?? 0,
+          id: '',
+          tournament_id: tournamentId ?? '',
           name: resultTable.current_pool?.series_name ?? '',
           max_points: 0,
           phase_format: 'POOLS_ONLY',
@@ -465,7 +465,7 @@ export default function RefereeDashboard() {
             ) : (
               <select
                 value={tournamentId ?? ''}
-                onChange={(e) => setActiveTournamentId(Number(e.target.value))}
+                onChange={(e) => setActiveTournamentId(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded-md px-2 py-1.5"
               >
                 {activeTournaments.map((t) => (

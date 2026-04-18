@@ -3,7 +3,7 @@ import { CheckCircle, XCircle, Zap } from 'lucide-react';
 
 interface TableCardProps {
   table: TournamentTable;
-  onEnterResult?: (matchId: number) => void;
+  onEnterResult?: (matchId: string) => void;
   dark?: boolean;
 }
 

@@ -76,9 +76,9 @@ function TournamentRow({
 }: {
   tournament: Tournament;
   onEdit: (t: Tournament) => void;
-  onOpenReg: (id: number) => void;
-  onCloseReg: (id: number) => void;
-  onStart: (id: number) => void;
+  onOpenReg: (id: string) => void;
+  onCloseReg: (id: string) => void;
+  onStart: (id: string) => void;
   onManageSeries: (t: Tournament) => void;
   onManageTables: (t: Tournament) => void;
 }) {
@@ -272,7 +272,7 @@ function SeriesPanel({ tournament }: { tournament: Tournament }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: SeriesPayload }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: SeriesPayload }) =>
       seriesApi.update(tournament.id, id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['series', tournament.id] });
@@ -346,7 +346,7 @@ function SeriesPanel({ tournament }: { tournament: Tournament }) {
 
 // ── Registrations panel ───────────────────────────────────────────────────────
 
-function RegistrationsPanel({ tournamentId }: { tournamentId: number }) {
+function RegistrationsPanel({ tournamentId }: { tournamentId: string }) {
   const queryClient = useQueryClient();
 
   const { data: registrations, isLoading } = useQuery({
@@ -459,8 +459,8 @@ export default function AdminDashboard() {
   const [editTournament, setEditTournament] = useState<Tournament | null>(null);
   const [seriesTournament, setSeriesTournament] = useState<Tournament | null>(null);
   const [tablesTournament, setTablesTournament] = useState<Tournament | null>(null);
-  const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null);
-  const [poolsTournamentId, setPoolsTournamentId] = useState<number | null>(null);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
+  const [poolsTournamentId, setPoolsTournamentId] = useState<string | null>(null);
   const [showDemoConfirm, setShowDemoConfirm] = useState(false);
   const [demoResult, setDemoResult] = useState<DemoSeedResponse | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
@@ -479,7 +479,7 @@ export default function AdminDashboard() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: TournamentPayload }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: TournamentPayload }) =>
       tournamentsApi.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
@@ -659,7 +659,7 @@ export default function AdminDashboard() {
                 <select
                   value={seriesTournament?.id ?? regsOrSeriesTournament?.id ?? ''}
                   onChange={(e) => {
-                    const t = tournamentList.find((t) => t.id === Number(e.target.value));
+                    const t = tournamentList.find((t) => t.id === e.target.value);
                     if (t) setSeriesTournament(t);
                   }}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -692,7 +692,7 @@ export default function AdminDashboard() {
                 </label>
                 <select
                   value={poolsTournamentId ?? regsOrSeriesTournament?.id ?? ''}
-                  onChange={(e) => setPoolsTournamentId(Number(e.target.value))}
+                  onChange={(e) => setPoolsTournamentId(e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {tournamentList.map((t) => (
@@ -727,7 +727,7 @@ export default function AdminDashboard() {
                 </label>
                 <select
                   value={selectedTournamentId ?? regsOrSeriesTournament?.id ?? ''}
-                  onChange={(e) => setSelectedTournamentId(Number(e.target.value))}
+                  onChange={(e) => setSelectedTournamentId(e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {tournamentList.map((t) => (

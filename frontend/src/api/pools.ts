@@ -2,21 +2,21 @@ import apiClient from './client';
 import type { PoolData, SwapPlayersPayload } from '../types';
 
 export const poolsApi = {
-  list: async (tournamentId: number): Promise<PoolData[]> => {
+  list: async (tournamentId: string): Promise<PoolData[]> => {
     const { data } = await apiClient.get<PoolData[]>(
       `/api/tournaments/${tournamentId}/pools`
     );
     return data;
   },
 
-  generate: async (tournamentId: number): Promise<PoolData[]> => {
+  generate: async (tournamentId: string): Promise<PoolData[]> => {
     const { data } = await apiClient.post<PoolData[]>(
       `/api/tournaments/${tournamentId}/pools/generate`
     );
     return data;
   },
 
-  regenerate: async (tournamentId: number): Promise<PoolData[]> => {
+  regenerate: async (tournamentId: string): Promise<PoolData[]> => {
     const { data } = await apiClient.post<PoolData[]>(
       `/api/tournaments/${tournamentId}/pools/regenerate`
     );
@@ -31,14 +31,14 @@ export const poolsApi = {
     return data;
   },
 
-  confirm: async (tournamentId: number): Promise<PoolData[]> => {
+  confirm: async (tournamentId: string): Promise<PoolData[]> => {
     const { data } = await apiClient.post<PoolData[]>(
       `/api/tournaments/${tournamentId}/pools/confirm`
     );
     return data;
   },
 
-  start: async (poolId: number, tableId: number): Promise<PoolData> => {
+  start: async (poolId: string, tableId: string): Promise<PoolData> => {
     const { data } = await apiClient.post<PoolData>(
       `/api/pools/${poolId}/start`,
       { table_id: tableId }
@@ -46,7 +46,7 @@ export const poolsApi = {
     return data;
   },
 
-  get: async (poolId: number): Promise<PoolData> => {
+  get: async (poolId: string): Promise<PoolData> => {
     const { data } = await apiClient.get<PoolData>(`/api/pools/${poolId}`);
     return data;
   },
