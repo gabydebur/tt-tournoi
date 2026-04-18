@@ -7,9 +7,11 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user, require_role
 from app.database import get_db
-from app.models.pool import Pool, PoolPlayer
+from app.models.match import Match, MatchStatus
+from app.models.pool import Pool, PoolPlayer, PoolStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.series import Series
+from app.models.table import TableStatus, TournamentTable
 from app.models.tournament import Tournament, TournamentStatus
 from app.models.user import User, UserRole
 from app.schemas.tournament import (
@@ -223,3 +225,117 @@ async def get_standings(
         )
 
     return TournamentStandingsResponse(tournament_id=tournament_id, series=series_standings)
+
+
+@router.get("/{tournament_id}/display-state")
+async def get_display_state(
+    tournament_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Public endpoint returning tournament display state (no auth)."""
+    t_result = await db.execute(
+        select(Tournament).where(Tournament.id == tournament_id)
+    )
+    tournament = t_result.scalar_one_or_none()
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    # Load series + pools
+    series_result = await db.execute(
+        select(Series)
+        .where(Series.tournament_id == tournament_id)
+        .options(selectinload(Series.pools))
+    )
+    all_series = series_result.scalars().all()
+
+    active_series = []
+    for s in all_series:
+        total_pools = len(s.pools)
+        in_progress = sum(
+            1 for p in s.pools if p.status == PoolStatus.IN_PROGRESS
+        )
+        finished_pools = sum(
+            1 for p in s.pools if p.status == PoolStatus.FINISHED
+        )
+        # Determine phase: if all pools finished and elimination matches exist -> ELIMINATION
+        phase = "POOLS"
+        if total_pools > 0 and finished_pools == total_pools:
+            phase = "ELIMINATION"
+        active_series.append(
+            {
+                "id": str(s.id),
+                "name": s.name,
+                "phase": phase,
+                "pools_in_progress": in_progress,
+                "pools_total": total_pools,
+            }
+        )
+
+    # Active matches
+    tables_result = await db.execute(
+        select(TournamentTable)
+        .where(
+            TournamentTable.tournament_id == tournament_id,
+            TournamentTable.status == TableStatus.OCCUPIED,
+        )
+        .order_by(TournamentTable.number)
+    )
+    tables = tables_result.scalars().all()
+
+    active_matches = []
+    for t in tables:
+        if t.current_match_id is None:
+            continue
+        m_result = await db.execute(
+            select(Match)
+            .where(Match.id == t.current_match_id)
+            .options(
+                selectinload(Match.player1),
+                selectinload(Match.player2),
+                selectinload(Match.sets),
+                selectinload(Match.pool).selectinload(Pool.series),
+                selectinload(Match.series),
+            )
+        )
+        m = m_result.scalar_one_or_none()
+        if m is None:
+            continue
+        sets_data = [
+            {"score_player1": s.score_player1, "score_player2": s.score_player2}
+            for s in (m.sets or [])
+        ]
+        # Current set score: last set not yet won, or 0-0
+        current_set = {"p1": 0, "p2": 0}
+        series_name = m.series.name if m.series else ""
+        pool_name = m.pool.name if m.pool else ""
+        p1 = m.player1
+        p2 = m.player2
+        active_matches.append(
+            {
+                "table_number": t.number,
+                "series_name": series_name,
+                "pool_name": pool_name,
+                "player1": {
+                    "first_name": p1.first_name if p1 else "",
+                    "last_name": p1.last_name if p1 else "",
+                    "points": p1.points if p1 else 0,
+                },
+                "player2": {
+                    "first_name": p2.first_name if p2 else "",
+                    "last_name": p2.last_name if p2 else "",
+                    "points": p2.points if p2 else 0,
+                },
+                "sets": sets_data,
+                "current_set_score": current_set,
+            }
+        )
+
+    return {
+        "tournament": {
+            "id": str(tournament.id),
+            "name": tournament.name,
+            "status": tournament.status.value,
+        },
+        "active_series": active_series,
+        "active_matches": active_matches,
+    }

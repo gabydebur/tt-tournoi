@@ -3,7 +3,7 @@ from app.models.player import Player
 from app.models.tournament import Tournament, TournamentStatus
 from app.models.series import Series, PhaseFormat
 from app.models.registration import Registration, RegistrationStatus
-from app.models.pool import Pool, PoolPlayer
+from app.models.pool import Pool, PoolPlayer, PoolStatus
 from app.models.table import TournamentTable, TableStatus
 from app.models.match import Match, MatchStatus, SetResult
 
@@ -19,6 +19,7 @@ __all__ = [
     "RegistrationStatus",
     "Pool",
     "PoolPlayer",
+    "PoolStatus",
     "TournamentTable",
     "TableStatus",
     "Match",

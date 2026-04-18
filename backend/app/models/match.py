@@ -49,10 +49,16 @@ class Match(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sets_to_win: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    order_in_pool: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     series: Mapped["Series"] = relationship("Series", back_populates="matches")  # noqa: F821
-    pool: Mapped["Pool | None"] = relationship("Pool", back_populates="matches")  # noqa: F821
+    pool: Mapped["Pool | None"] = relationship(
+        "Pool",
+        back_populates="matches",
+        foreign_keys=[pool_id],
+        primaryjoin="Match.pool_id == Pool.id",
+    )  # noqa: F821
     player1: Mapped["Player"] = relationship(  # noqa: F821
         "Player", foreign_keys=[player1_id], primaryjoin="Match.player1_id == Player.id"
     )

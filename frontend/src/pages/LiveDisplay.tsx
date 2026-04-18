@@ -1,112 +1,181 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { tablesApi } from '../api/tables';
-import { tournamentsApi } from '../api/tournaments';
-import { matchesApi } from '../api/matches';
-import { useWebSocket } from '../hooks/useWebSocket';
-import TableCard from '../components/TableCard';
-import StandingsTable from '../components/StandingsTable';
-import BracketView from '../components/BracketView';
-import type { WsEvent, SeriesStandings, Match } from '../types';
-import { Wifi, WifiOff, Trophy } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { displayApi } from '../api/display';
+import type { DisplayState, DisplayActiveMatch, DisplayActiveSeries } from '../types';
+import { Trophy, Radio, Users, Target } from 'lucide-react';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const WS_BASE = BASE_URL.replace(/^http/, 'ws');
+function MatchCard({ match }: { match: DisplayActiveMatch }) {
+  const p1Sets = match.sets.filter((s) => s.score_player1 > s.score_player2).length;
+  const p2Sets = match.sets.filter((s) => s.score_player2 > s.score_player1).length;
 
-type DisplayTab = 'standings' | 'bracket';
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-yellow-400 text-black px-3 py-1 rounded-lg font-extrabold text-xl">
+            T{match.table_number}
+          </div>
+          <div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-yellow-400">
+              {match.series_name}
+            </div>
+            <div className="text-xs text-gray-400">{match.pool_name}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-xs font-medium text-red-400">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          LIVE
+        </div>
+      </div>
+
+      {/* Players and score */}
+      <div className="space-y-3">
+        {/* Player 1 */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="text-3xl font-bold truncate">
+              {match.player1.first_name} {match.player1.last_name}
+            </div>
+            <div className="text-sm text-gray-400">{match.player1.points} pts</div>
+          </div>
+          <div className="text-5xl font-bold tabular-nums text-yellow-400">
+            {p1Sets}
+          </div>
+        </div>
+
+        {/* Player 2 */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="text-3xl font-bold truncate">
+              {match.player2.first_name} {match.player2.last_name}
+            </div>
+            <div className="text-sm text-gray-400">{match.player2.points} pts</div>
+          </div>
+          <div className="text-5xl font-bold tabular-nums text-yellow-400">
+            {p2Sets}
+          </div>
+        </div>
+      </div>
+
+      {/* Sets breakdown */}
+      {match.sets.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-800">
+          {match.sets.map((s, i) => (
+            <span
+              key={i}
+              className="text-lg font-mono font-semibold px-3 py-1 rounded bg-gray-800 text-gray-200"
+            >
+              {s.score_player1}-{s.score_player2}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Current live set */}
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">
+          Set en cours
+        </div>
+        <div className="text-4xl font-bold tabular-nums text-yellow-400">
+          {match.current_set_score.p1}
+          <span className="mx-3 text-gray-500">–</span>
+          {match.current_set_score.p2}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActiveSeriesRow({ series }: { series: DisplayActiveSeries }) {
+  const pct =
+    series.pools_total > 0
+      ? Math.round((series.pools_in_progress / series.pools_total) * 100)
+      : 0;
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold text-lg">{series.name}</div>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            series.phase === 'POOLS'
+              ? 'bg-blue-500/20 text-blue-300'
+              : 'bg-purple-500/20 text-purple-300'
+          }`}
+        >
+          {series.phase === 'POOLS' ? (
+            <span className="flex items-center gap-1">
+              <Users size={11} /> Poules
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <Target size={11} /> Élimination
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+        <span>Poules en cours</span>
+        <span className="tabular-nums">
+          {series.pools_in_progress} / {series.pools_total}
+        </span>
+      </div>
+      <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-yellow-400 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function LiveDisplay() {
-  const { id } = useParams<{ id: string }>();
-  const tournamentId = Number(id);
-  const queryClient = useQueryClient();
-  const [displayTab, setDisplayTab] = useState<DisplayTab>('standings');
-  const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null);
+  const { id, tournamentId: idFromRoute } = useParams<{
+    id?: string;
+    tournamentId?: string;
+  }>();
+  const tournamentId = Number(idFromRoute ?? id);
   const [clock, setClock] = useState(new Date());
 
-  // Live clock
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Tournament info
-  const { data: tournament } = useQuery({
-    queryKey: ['tournament', tournamentId],
-    queryFn: () => tournamentsApi.get(tournamentId),
-    refetchInterval: 60000,
+  const { data } = useQuery({
+    queryKey: ['display-state', tournamentId],
+    queryFn: () => displayApi.getState(tournamentId),
+    enabled: !!tournamentId && !Number.isNaN(tournamentId),
+    refetchInterval: 2000,
   });
 
-  // Tables
-  const { data: tables } = useQuery({
-    queryKey: ['tables', tournamentId],
-    queryFn: () => tablesApi.list(tournamentId),
-    refetchInterval: 10000,
-  });
-
-  // Standings
-  const { data: standings } = useQuery({
-    queryKey: ['standings', tournamentId],
-    queryFn: () => tournamentsApi.standings(tournamentId),
-    refetchInterval: 30000,
-  });
-
-  // Elimination matches for bracket
-  const { data: allMatches } = useQuery({
-    queryKey: ['matches', tournamentId, 'elimination'],
-    queryFn: () => matchesApi.list(tournamentId),
-    refetchInterval: 15000,
-  });
-
-  const eliminationMatches = (allMatches ?? []).filter(
-    (m: Match) => m.phase === 'ELIMINATION'
-  );
-
-  const standingsList = (standings ?? []) as SeriesStandings[];
-  const activeSeries = standingsList.find((s) => s.series_id === selectedSeriesId)
-    ?? standingsList[0]
-    ?? null;
-
-  // WebSocket
-  const wsUrl = `${WS_BASE}/ws/display/${tournamentId}`;
-  const { isConnected } = useWebSocket(wsUrl, {
-    onMessage: useCallback(
-      (_event: WsEvent) => {
-        queryClient.invalidateQueries({ queryKey: ['tables', tournamentId] });
-        queryClient.invalidateQueries({ queryKey: ['standings', tournamentId] });
-        queryClient.invalidateQueries({ queryKey: ['matches', tournamentId] });
-      },
-      [queryClient, tournamentId]
-    ),
-    reconnectDelay: 2000,
-    maxRetries: 999,
-  });
+  const state = data as DisplayState | undefined;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
-      {/* Header bar */}
-      <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Trophy size={22} className="text-yellow-400" />
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      {/* Header */}
+      <header className="flex items-center justify-between px-8 py-5 bg-black border-b border-gray-800">
+        <div className="flex items-center gap-4">
+          <Trophy size={36} className="text-yellow-400" />
           <div>
-            <div className="font-bold text-lg leading-tight">
-              {tournament?.name ?? 'Tournoi'}
+            <div className="font-extrabold text-3xl leading-tight">
+              {state?.tournament.name ?? 'Tournoi'}
             </div>
-            {tournament?.location && (
-              <div className="text-xs text-gray-400">{tournament.location}</div>
-            )}
+            <div className="text-sm text-gray-400">Écran public — TT Tournoi</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Status indicator */}
-          <div className={`flex items-center gap-1.5 text-xs ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-            {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
-            {isConnected ? 'En direct' : 'Reconnexion...'}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 text-red-400 text-sm font-semibold">
+            <Radio size={16} className="animate-pulse" />
+            <span className="bg-red-500 text-white px-3 py-1 rounded-lg uppercase tracking-widest">
+              En direct
+            </span>
           </div>
-
-          {/* Clock */}
-          <div className="text-2xl font-mono font-bold text-yellow-400 tabular-nums">
+          <div className="text-5xl font-mono font-bold text-yellow-400 tabular-nums">
             {clock.toLocaleTimeString('fr-FR', {
               hour: '2-digit',
               minute: '2-digit',
@@ -116,86 +185,41 @@ export default function LiveDisplay() {
         </div>
       </header>
 
-      {/* Tables section */}
-      <section className="px-4 py-4 border-b border-gray-800 flex-shrink-0">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
-          Tables
-        </h2>
-        {(tables ?? []).length === 0 ? (
-          <p className="text-gray-600 text-sm">Aucune table configurée</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {(tables ?? []).map((table) => (
-              <TableCard key={table.id} table={table} dark />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Bottom section: standings / bracket */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Tab bar */}
-        <div className="flex items-center gap-1 px-4 pt-3 pb-2 border-b border-gray-800 flex-shrink-0">
-          {(['standings', 'bracket'] as DisplayTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setDisplayTab(tab)}
-              className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                displayTab === tab
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-              }`}
-            >
-              {tab === 'standings' ? 'Classements poules' : 'Tableau final'}
-            </button>
-          ))}
-
-          {/* Series selector for standings */}
-          {displayTab === 'standings' && standingsList.length > 1 && (
-            <select
-              value={selectedSeriesId ?? ''}
-              onChange={(e) => setSelectedSeriesId(Number(e.target.value) || null)}
-              className="ml-3 text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {standingsList.map((s) => (
-                <option key={s.series_id} value={s.series_id}>
-                  Série {s.series_id}
-                </option>
+      {/* Body */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Matches grid */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500 mb-4">
+            Matchs en cours
+          </h2>
+          {!state || state.active_matches.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-600 text-xl">
+              Aucun match en cours
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
+              {state.active_matches.map((m, idx) => (
+                <MatchCard key={`${m.table_number}-${idx}`} match={m} />
               ))}
-            </select>
+            </div>
           )}
-        </div>
+        </main>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {displayTab === 'standings' && (
-            <>
-              {!activeSeries ? (
-                <p className="text-gray-600 text-center py-8">
-                  Aucun classement disponible
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {activeSeries.pools.map((pool) => (
-                    <StandingsTable key={pool.name} pool={pool} dark />
-                  ))}
-                </div>
-              )}
-            </>
+        {/* Active series sidebar */}
+        <aside className="w-80 flex-shrink-0 border-l border-gray-800 bg-black overflow-y-auto p-6">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500 mb-4">
+            Séries actives
+          </h2>
+          {!state || state.active_series.length === 0 ? (
+            <p className="text-gray-600 text-sm">Aucune série active</p>
+          ) : (
+            <div className="space-y-3">
+              {state.active_series.map((s) => (
+                <ActiveSeriesRow key={s.id} series={s} />
+              ))}
+            </div>
           )}
-
-          {displayTab === 'bracket' && (
-            <>
-              {eliminationMatches.length === 0 ? (
-                <p className="text-gray-600 text-center py-8">
-                  Aucun match d'élimination
-                </p>
-              ) : (
-                <BracketView matches={eliminationMatches} dark />
-              )}
-            </>
-          )}
-        </div>
+        </aside>
       </div>
     </div>
   );

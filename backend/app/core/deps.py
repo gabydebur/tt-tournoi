@@ -1,3 +1,4 @@
+import uuid
 from typing import Callable
 
 from fastapi import Depends, HTTPException, status
@@ -29,8 +30,12 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
 
-    user_id: str | None = payload.get("sub")
-    if user_id is None:
+    user_id_str: str | None = payload.get("sub")
+    if user_id_str is None:
+        raise credentials_exception
+    try:
+        user_id = uuid.UUID(user_id_str)
+    except (ValueError, TypeError):
         raise credentials_exception
 
     result = await db.execute(

@@ -141,6 +141,25 @@ async def register_player(
     if existing_result.scalar_one_or_none() is not None:
         raise HTTPException(status_code=400, detail="Already registered for this series")
 
+    # Check max_series_per_player limit
+    if tournament.max_series_per_player is not None:
+        tournament_series_result = await db.execute(
+            select(Series.id).where(Series.tournament_id == tournament_id)
+        )
+        tournament_series_ids = [sid for sid in tournament_series_result.scalars().all()]
+        count_result = await db.execute(
+            select(Registration).where(
+                Registration.player_id == player.id,
+                Registration.series_id.in_(tournament_series_ids),
+            )
+        )
+        existing_count = len(count_result.scalars().all())
+        if existing_count >= tournament.max_series_per_player:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Maximum series limit reached for this tournament ({tournament.max_series_per_player})",
+            )
+
     registration = Registration(
         id=uuid.uuid4(),
         player_id=player.id,

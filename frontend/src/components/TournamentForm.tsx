@@ -21,7 +21,11 @@ export default function TournamentForm({
     location: initial?.location ?? '',
     start_date: initial?.start_date?.slice(0, 10) ?? '',
     end_date: initial?.end_date?.slice(0, 10) ?? '',
+    max_series_per_player: initial?.max_series_per_player ?? null,
   });
+  const [maxSeriesInput, setMaxSeriesInput] = useState<string>(
+    initial?.max_series_per_player != null ? String(initial.max_series_per_player) : ''
+  );
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -35,8 +39,18 @@ export default function TournamentForm({
     if (!form.start_date) { setError('La date de début est requise'); return; }
     if (!form.end_date) { setError('La date de fin est requise'); return; }
     if (form.end_date < form.start_date) { setError('La date de fin doit être après la date de début'); return; }
+    const trimmed = maxSeriesInput.trim();
+    let maxSeriesValue: number | null = null;
+    if (trimmed !== '') {
+      const parsed = parseInt(trimmed, 10);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        setError('Le nombre max de séries par joueur doit être un entier positif');
+        return;
+      }
+      maxSeriesValue = parsed;
+    }
     try {
-      await onSubmit(form);
+      await onSubmit({ ...form, max_series_per_player: maxSeriesValue });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde');
     }
@@ -76,6 +90,19 @@ export default function TournamentForm({
           <label className={labelCls}>Date de fin *</label>
           <input type="date" name="end_date" value={form.end_date} onChange={handleChange} className={inputCls} />
         </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Nombre max de séries par joueur</label>
+        <input
+          type="number"
+          min={1}
+          value={maxSeriesInput}
+          onChange={(e) => setMaxSeriesInput(e.target.value)}
+          className={inputCls}
+          placeholder="Illimité"
+        />
+        <p className="text-xs text-gray-400 mt-1">Laisser vide pour autoriser un nombre illimité de séries par joueur.</p>
       </div>
 
       {error && (

@@ -1,7 +1,7 @@
-import type { Pool } from '../types';
+import type { StandingsPool } from '../types';
 
 interface StandingsTableProps {
-  pool: Pool;
+  pool: StandingsPool;
   dark?: boolean;
 }
 

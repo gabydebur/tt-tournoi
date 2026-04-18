@@ -15,15 +15,16 @@ from app.models.series import PhaseFormat, Series
 from app.models.table import TableStatus, TournamentTable
 from app.models.tournament import TournamentStatus
 from app.models.user import User, UserRole
+from app.models.pool import Pool, PoolStatus
 from app.schemas.match import (
     MatchDetailResponse,
     MatchResultRequest,
     MatchStartRequest,
     PlayerBrief,
     SetResultResponse,
-    SuggestedMatchResponse,
+    SuggestionsResponse,
 )
-from app.services.match_suggestion import get_suggested_matches
+from app.services.match_suggestion import get_suggestions
 from app.services.websocket_manager import manager
 
 router = APIRouter(tags=["matches"])
@@ -97,13 +98,15 @@ async def list_matches(
     return out
 
 
-@router.get("/tournaments/{tournament_id}/matches/suggestions", response_model=list[SuggestedMatchResponse])
+@router.get(
+    "/tournaments/{tournament_id}/matches/suggestions", response_model=SuggestionsResponse
+)
 async def suggested_matches(
     tournament_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_role(UserRole.ADMIN, UserRole.REFEREE)),
-) -> list[SuggestedMatchResponse]:
-    return await get_suggested_matches(tournament_id, db)
+) -> SuggestionsResponse:
+    return await get_suggestions(tournament_id, db)
 
 
 @router.get("/matches/{match_id}", response_model=MatchDetailResponse)
@@ -236,22 +239,14 @@ async def submit_result(
     match.winner_id = winner_id
     match.finished_at = datetime.now(timezone.utc)
 
-    # Free the table
-    if match.table_id:
-        table_result = await db.execute(
-            select(TournamentTable).where(TournamentTable.id == match.table_id)
-        )
-        table = table_result.scalar_one_or_none()
-        if table:
-            table.status = TableStatus.FREE
-            table.current_match_id = None
-            db.add(table)
+    match_table_id = match.table_id
+    match_pool_id = match.pool_id
 
     db.add(match)
     await db.flush()
 
     # Update PoolPlayer stats if this is a pool match
-    if match.pool_id:
+    if match_pool_id:
         await _update_pool_stats(
             match=match,
             winner_id=winner_id,
@@ -263,8 +258,89 @@ async def submit_result(
             db=db,
         )
 
-    # Handle elimination bracket advancement
     series = match.series
+
+    # Pool match auto-advance
+    if match_pool_id:
+        # Find next match in pool
+        next_result = await db.execute(
+            select(Match)
+            .where(
+                Match.pool_id == match_pool_id,
+                Match.status == MatchStatus.SCHEDULED,
+            )
+            .order_by(Match.order_in_pool)
+            .limit(1)
+        )
+        next_match = next_result.scalar_one_or_none()
+
+        # Load pool
+        pool_result = await db.execute(
+            select(Pool).where(Pool.id == match_pool_id)
+        )
+        pool = pool_result.scalar_one_or_none()
+
+        if next_match is not None:
+            next_match.status = MatchStatus.IN_PROGRESS
+            next_match.table_id = match_table_id
+            next_match.started_at = datetime.now(timezone.utc)
+            db.add(next_match)
+            if pool:
+                pool.current_match_id = next_match.id
+                db.add(pool)
+            if match_table_id:
+                table_result = await db.execute(
+                    select(TournamentTable).where(TournamentTable.id == match_table_id)
+                )
+                table = table_result.scalar_one_or_none()
+                if table:
+                    table.current_match_id = next_match.id
+                    db.add(table)
+            await db.flush()
+            if series:
+                await manager.broadcast(
+                    str(series.tournament_id),
+                    {
+                        "event": "match_started",
+                        "match_id": str(next_match.id),
+                        "table_id": str(match_table_id) if match_table_id else None,
+                    },
+                )
+        else:
+            # Pool finished — free table
+            if pool:
+                pool.status = PoolStatus.FINISHED
+                pool.current_match_id = None
+                pool.table_id = None
+                db.add(pool)
+            if match_table_id:
+                table_result = await db.execute(
+                    select(TournamentTable).where(TournamentTable.id == match_table_id)
+                )
+                table = table_result.scalar_one_or_none()
+                if table:
+                    table.status = TableStatus.FREE
+                    table.current_match_id = None
+                    db.add(table)
+            await db.flush()
+            if series and pool:
+                await manager.broadcast(
+                    str(series.tournament_id),
+                    {"event": "pool_finished", "pool_id": str(pool.id)},
+                )
+    else:
+        # Elimination or standalone match — free the table
+        if match_table_id:
+            table_result = await db.execute(
+                select(TournamentTable).where(TournamentTable.id == match_table_id)
+            )
+            table = table_result.scalar_one_or_none()
+            if table:
+                table.status = TableStatus.FREE
+                table.current_match_id = None
+                db.add(table)
+
+    # Handle elimination bracket advancement
     if series and match.elimination_round is not None:
         from app.services.bracket_generator import advance_bracket
 

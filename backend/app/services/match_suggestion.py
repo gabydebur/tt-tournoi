@@ -1,160 +1,229 @@
 import uuid
-from datetime import datetime
 
-from sqlalchemy import and_, exists, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.match import Match, MatchStatus
+from app.models.pool import Pool, PoolPlayer, PoolStatus
+from app.models.series import Series
 from app.models.table import TableStatus, TournamentTable
-from app.models.tournament import Tournament, TournamentStatus
-from app.schemas.match import PlayerBrief, SuggestedMatchResponse
+from app.schemas.match import (
+    ActiveMatch,
+    ActivePool,
+    ActiveTable,
+    EliminationToStart,
+    PlayerBrief,
+    PoolToStart,
+    SetSnapshot,
+    SuggestionsResponse,
+    TableBrief,
+)
 
 
-async def get_suggested_matches(
-    tournament_id: uuid.UUID,
-    db: AsyncSession,
-) -> list[SuggestedMatchResponse]:
-    """
-    Return SCHEDULED matches where:
-    - Both players are free (no IN_PROGRESS match)
-    - At least one FREE table exists for this tournament
-    Sorted by waiting time desc (those waiting longest come first).
-    """
-    # Check tournament is IN_PROGRESS
-    t_result = await db.execute(
-        select(Tournament).where(Tournament.id == tournament_id)
+def _round_name(round_number: int) -> str:
+    mapping = {1: "FINAL", 2: "SEMIFINAL", 3: "QUARTERFINAL", 4: "R16", 5: "R32"}
+    return mapping.get(round_number, f"R{round_number}")
+
+
+async def get_suggestions(
+    tournament_id: uuid.UUID, db: AsyncSession
+) -> SuggestionsResponse:
+    # Pools to start: CONFIRMED pools
+    pools_result = await db.execute(
+        select(Pool)
+        .join(Series, Pool.series_id == Series.id)
+        .where(
+            Series.tournament_id == tournament_id,
+            Pool.status == PoolStatus.CONFIRMED,
+        )
+        .options(
+            selectinload(Pool.series),
+            selectinload(Pool.pool_players).selectinload(PoolPlayer.player),
+        )
+        .order_by(Series.name, Pool.name)
     )
-    tournament = t_result.scalar_one_or_none()
-    if tournament is None or tournament.status != TournamentStatus.IN_PROGRESS:
-        return []
+    pools = pools_result.scalars().all()
 
-    # Check if there are free tables
-    free_table_result = await db.execute(
-        select(TournamentTable).where(
-            and_(
-                TournamentTable.tournament_id == tournament_id,
-                TournamentTable.status == TableStatus.FREE,
+    pools_to_start: list[PoolToStart] = []
+    for pool in pools:
+        players = []
+        for pp in pool.pool_players:
+            if pp.player is None:
+                continue
+            players.append(
+                PlayerBrief(
+                    id=pp.player.id,
+                    first_name=pp.player.first_name,
+                    last_name=pp.player.last_name,
+                    points=pp.player.points,
+                    club=pp.player.club,
+                )
             )
-        ).limit(1)
+        pools_to_start.append(
+            PoolToStart(
+                id=pool.id,
+                name=pool.name,
+                series_name=pool.series.name if pool.series else "",
+                players=players,
+            )
+        )
+
+    # Eliminations to start: SCHEDULED matches with pool_id IS NULL
+    busy_players: set[uuid.UUID] = set()
+    busy_result = await db.execute(
+        select(Match).where(Match.status == MatchStatus.IN_PROGRESS)
     )
-    has_free_table = free_table_result.scalar_one_or_none() is not None
-    if not has_free_table:
-        return []
+    for m in busy_result.scalars().all():
+        busy_players.add(m.player1_id)
+        if m.player2_id is not None:
+            busy_players.add(m.player2_id)
 
-    # Subquery: players currently IN_PROGRESS
-    busy_as_p1 = select(Match.player1_id).where(Match.status == MatchStatus.IN_PROGRESS)
-    busy_as_p2 = select(Match.player2_id).where(Match.status == MatchStatus.IN_PROGRESS)
-
-    # Get all SCHEDULED matches for this tournament's series
-    from app.models.series import Series
-
-    scheduled_result = await db.execute(
+    elim_result = await db.execute(
         select(Match)
         .join(Series, Match.series_id == Series.id)
         .where(
-            and_(
-                Series.tournament_id == tournament_id,
-                Match.status == MatchStatus.SCHEDULED,
-                Match.player1_id.notin_(busy_as_p1),
-                Match.player2_id.notin_(busy_as_p2),
-                Match.player1_id.notin_(busy_as_p2),
-                Match.player2_id.notin_(busy_as_p1),
-            )
+            Series.tournament_id == tournament_id,
+            Match.status == MatchStatus.SCHEDULED,
+            Match.pool_id.is_(None),
         )
         .options(
             selectinload(Match.player1),
             selectinload(Match.player2),
+            selectinload(Match.series),
         )
     )
-    scheduled_matches = scheduled_result.scalars().all()
-
-    if not scheduled_matches:
-        return []
-
-    # For each match, determine waiting_since: the finished_at of the player's last match
-    # We approximate by using scheduled_at as a proxy (longest scheduled = highest priority)
-    # More precisely: find the latest finished_at among both players' finished matches
-    all_player_ids = set()
-    for m in scheduled_matches:
-        all_player_ids.add(m.player1_id)
-        all_player_ids.add(m.player2_id)
-
-    # Get last finished match time per player
-    from sqlalchemy import func, or_
-
-    last_finished_result = await db.execute(
-        select(
-            func.greatest(Match.player1_id, Match.player2_id).label("dummy"),  # just for grouping trick
-            Match.player1_id,
-            Match.player2_id,
-            func.max(Match.finished_at).label("last_finished"),
-        )
-        .where(
-            and_(
-                Match.status == MatchStatus.FINISHED,
-                or_(
-                    Match.player1_id.in_(all_player_ids),
-                    Match.player2_id.in_(all_player_ids),
-                ),
-            )
-        )
-        .group_by(Match.player1_id, Match.player2_id)
-    )
-
-    # Build player_id -> last_finished_at map
-    player_last_finished: dict[uuid.UUID, datetime | None] = {pid: None for pid in all_player_ids}
-    for row in last_finished_result:
-        if row.last_finished:
-            for pid in [row.player1_id, row.player2_id]:
-                if pid in player_last_finished:
-                    current = player_last_finished[pid]
-                    if current is None or row.last_finished > current:
-                        player_last_finished[pid] = row.last_finished
-
-    def waiting_since(match: Match) -> datetime | None:
-        t1 = player_last_finished.get(match.player1_id)
-        t2 = player_last_finished.get(match.player2_id)
-        if t1 is None and t2 is None:
-            return match.scheduled_at
-        candidates = [x for x in [t1, t2] if x is not None]
-        # The match can start when both are free: take the later of the two
-        return max(candidates)
-
-    # Sort: those waiting longest first (earliest waiting_since -> waited the most)
-    sorted_matches = sorted(
-        scheduled_matches,
-        key=lambda m: waiting_since(m) or datetime.min,
-    )
-
-    suggestions: list[SuggestedMatchResponse] = []
-    for match in sorted_matches:
-        p1 = match.player1
-        p2 = match.player2
-        if p1 is None or p2 is None:
+    elim_matches = elim_result.scalars().all()
+    eliminations_to_start: list[EliminationToStart] = []
+    for m in elim_matches:
+        if m.player1_id in busy_players:
             continue
-        suggestions.append(
-            SuggestedMatchResponse(
-                id=match.id,
-                series_id=match.series_id,
-                pool_id=match.pool_id,
-                player1=PlayerBrief(
-                    id=p1.id,
-                    first_name=p1.first_name,
-                    last_name=p1.last_name,
-                    points=p1.points,
-                    club=p1.club,
-                ),
-                player2=PlayerBrief(
-                    id=p2.id,
-                    first_name=p2.first_name,
-                    last_name=p2.last_name,
-                    points=p2.points,
-                    club=p2.club,
-                ),
-                waiting_since=waiting_since(match),
-                day_number=match.day_number,
+        if m.player2_id is not None and m.player2_id in busy_players:
+            continue
+        p1 = (
+            PlayerBrief(
+                id=m.player1.id,
+                first_name=m.player1.first_name,
+                last_name=m.player1.last_name,
+                points=m.player1.points,
+                club=m.player1.club,
+            )
+            if m.player1
+            else None
+        )
+        p2 = (
+            PlayerBrief(
+                id=m.player2.id,
+                first_name=m.player2.first_name,
+                last_name=m.player2.last_name,
+                points=m.player2.points,
+                club=m.player2.club,
+            )
+            if m.player2
+            else None
+        )
+        round_str = _round_name(m.elimination_round) if m.elimination_round else "UNKNOWN"
+        eliminations_to_start.append(
+            EliminationToStart(
+                id=m.id,
+                series_name=m.series.name if m.series else "",
+                round=round_str,
+                player1=p1,
+                player2=p2,
             )
         )
 
-    return suggestions
+    # Tables
+    tables_result = await db.execute(
+        select(TournamentTable)
+        .where(TournamentTable.tournament_id == tournament_id)
+        .order_by(TournamentTable.number)
+    )
+    tables = tables_result.scalars().all()
+
+    available_tables: list[TableBrief] = []
+    active_tables: list[ActiveTable] = []
+
+    for t in tables:
+        if t.status == TableStatus.FREE:
+            available_tables.append(
+                TableBrief(id=t.id, number=t.number, status=t.status.value)
+            )
+            continue
+        # Occupied table — load current match & pool
+        current_match: ActiveMatch | None = None
+        current_pool: ActivePool | None = None
+        pool_progress: dict | None = None
+
+        if t.current_match_id:
+            m_result = await db.execute(
+                select(Match)
+                .where(Match.id == t.current_match_id)
+                .options(
+                    selectinload(Match.player1),
+                    selectinload(Match.player2),
+                    selectinload(Match.sets),
+                    selectinload(Match.pool).selectinload(Pool.series),
+                )
+            )
+            m = m_result.scalar_one_or_none()
+            if m:
+                p1 = (
+                    PlayerBrief(
+                        id=m.player1.id,
+                        first_name=m.player1.first_name,
+                        last_name=m.player1.last_name,
+                        points=m.player1.points,
+                        club=m.player1.club,
+                    )
+                    if m.player1
+                    else None
+                )
+                p2 = (
+                    PlayerBrief(
+                        id=m.player2.id,
+                        first_name=m.player2.first_name,
+                        last_name=m.player2.last_name,
+                        points=m.player2.points,
+                        club=m.player2.club,
+                    )
+                    if m.player2
+                    else None
+                )
+                sets = [
+                    SetSnapshot(score_player1=s.score_player1, score_player2=s.score_player2)
+                    for s in (m.sets or [])
+                ]
+                current_match = ActiveMatch(id=m.id, player1=p1, player2=p2, sets=sets)
+                if m.pool:
+                    current_pool = ActivePool(
+                        id=m.pool.id,
+                        name=m.pool.name,
+                        series_name=m.pool.series.name if m.pool.series else "",
+                    )
+                    # pool progress
+                    total_result = await db.execute(
+                        select(Match).where(Match.pool_id == m.pool.id)
+                    )
+                    all_matches = total_result.scalars().all()
+                    played = sum(
+                        1 for mm in all_matches if mm.status == MatchStatus.FINISHED
+                    )
+                    pool_progress = {"played": played, "total": len(all_matches)}
+
+        active_tables.append(
+            ActiveTable(
+                id=t.id,
+                number=t.number,
+                current_pool=current_pool,
+                current_match=current_match,
+                pool_progress=pool_progress,
+            )
+        )
+
+    return SuggestionsResponse(
+        pools_to_start=pools_to_start,
+        eliminations_to_start=eliminations_to_start,
+        available_tables=available_tables,
+        active_tables=active_tables,
+    )

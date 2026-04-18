@@ -59,6 +59,7 @@ export interface Tournament {
   end_date: string;
   status: TournamentStatus;
   created_at: string;
+  max_series_per_player?: number | null;
 }
 
 export interface TournamentPayload {
@@ -67,6 +68,7 @@ export interface TournamentPayload {
   location?: string;
   start_date: string;
   end_date: string;
+  max_series_per_player?: number | null;
 }
 
 // ─── Series ───────────────────────────────────────────────────────────────────
@@ -171,14 +173,14 @@ export interface PoolPlayer {
   points: number;
 }
 
-export interface Pool {
+export interface StandingsPool {
   name: string;
   players: PoolPlayer[];
 }
 
 export interface SeriesStandings {
   series_id: number;
-  pools: Pool[];
+  pools: StandingsPool[];
 }
 
 // ─── WebSocket Events ────────────────────────────────────────────────────────
@@ -205,4 +207,121 @@ export interface BracketMatch {
 export interface BracketRound {
   name: string;
   matches: BracketMatch[];
+}
+
+// ─── Pools (draw / bracket management) ───────────────────────────────────────
+
+export type PoolStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'FINISHED';
+
+export interface PoolPlayerBrief {
+  id: number;
+  first_name: string;
+  last_name: string;
+  points: number;
+  club?: string;
+}
+
+export interface PoolData {
+  id: number;
+  name: string;
+  status: PoolStatus;
+  table_id: number | null;
+  series_id: number;
+  series_name: string;
+  players: PoolPlayerBrief[];
+}
+
+export interface SwapPlayersPayload {
+  pool_a_id: number;
+  player_a_id: number;
+  pool_b_id: number;
+  player_b_id: number;
+}
+
+// ─── Match suggestions (v2) ──────────────────────────────────────────────────
+
+export interface SuggestionPoolBrief {
+  id: number;
+  name: string;
+  series_name: string;
+  players: PoolPlayerBrief[];
+}
+
+export interface SuggestionEliminationBrief {
+  id: number;
+  series_name: string;
+  round: MatchRound;
+  player1: PoolPlayerBrief;
+  player2: PoolPlayerBrief;
+}
+
+export interface AvailableTableBrief {
+  id: number;
+  number: number;
+  status: 'FREE';
+}
+
+export interface ActiveTableCurrentPool {
+  id: number;
+  name: string;
+  series_name: string;
+}
+
+export interface ActiveTableCurrentMatch {
+  id: number;
+  player1: PoolPlayerBrief;
+  player2: PoolPlayerBrief;
+  sets: SetScore[];
+}
+
+export interface ActiveTableBrief {
+  id: number;
+  number: number;
+  current_pool: ActiveTableCurrentPool | null;
+  current_match: ActiveTableCurrentMatch | null;
+  pool_progress: { played: number; total: number };
+}
+
+export interface MatchSuggestions {
+  pools_to_start: SuggestionPoolBrief[];
+  eliminations_to_start: SuggestionEliminationBrief[];
+  available_tables: AvailableTableBrief[];
+  active_tables: ActiveTableBrief[];
+}
+
+// ─── Live display state ──────────────────────────────────────────────────────
+
+export interface DisplayActiveSeries {
+  id: number;
+  name: string;
+  phase: 'POOLS' | 'ELIMINATION';
+  pools_in_progress: number;
+  pools_total: number;
+}
+
+export interface DisplayActiveMatch {
+  table_number: number;
+  series_name: string;
+  pool_name: string;
+  player1: PoolPlayerBrief;
+  player2: PoolPlayerBrief;
+  sets: SetScore[];
+  current_set_score: { p1: number; p2: number };
+}
+
+export interface DisplayState {
+  tournament: { id: number; name: string; status: TournamentStatus };
+  active_series: DisplayActiveSeries[];
+  active_matches: DisplayActiveMatch[];
+}
+
+// ─── Demo seed ───────────────────────────────────────────────────────────────
+
+export interface DemoSeedResponse {
+  tournament_id: number;
+  tournament_name: string;
+  player_count: number;
+  registration_count: number;
+  table_count: number;
+  login_hint: string;
 }

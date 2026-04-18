@@ -4,15 +4,18 @@ import { tournamentsApi } from '../api/tournaments';
 import { seriesApi } from '../api/series';
 import { registrationsApi } from '../api/registrations';
 import { tablesApi } from '../api/tables';
+import { demoApi } from '../api/demo';
 import Layout from '../components/Layout';
 import TournamentForm from '../components/TournamentForm';
 import SeriesForm from '../components/SeriesForm';
+import PoolsManagement from '../components/PoolsManagement';
 import type {
   Tournament,
   TournamentPayload,
   Series,
   SeriesPayload,
   Registration,
+  DemoSeedResponse,
 } from '../types';
 import {
   Trophy,
@@ -29,9 +32,11 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Sparkles,
+  Network,
 } from 'lucide-react';
 
-type Tab = 'tournaments' | 'series' | 'registrations';
+type Tab = 'tournaments' | 'series' | 'registrations' | 'pools';
 
 // ── Status badge ────────────────────────────────────────────────────────────
 
@@ -455,6 +460,10 @@ export default function AdminDashboard() {
   const [seriesTournament, setSeriesTournament] = useState<Tournament | null>(null);
   const [tablesTournament, setTablesTournament] = useState<Tournament | null>(null);
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null);
+  const [poolsTournamentId, setPoolsTournamentId] = useState<number | null>(null);
+  const [showDemoConfirm, setShowDemoConfirm] = useState(false);
+  const [demoResult, setDemoResult] = useState<DemoSeedResponse | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   const { data: tournaments, isLoading } = useQuery({
     queryKey: ['tournaments'],
@@ -493,10 +502,25 @@ export default function AdminDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tournaments'] }),
   });
 
+  const demoMutation = useMutation({
+    mutationFn: demoApi.seed,
+    onSuccess: (data) => {
+      setDemoResult(data);
+      setDemoError(null);
+      setShowDemoConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+    },
+    onError: (err: unknown) => {
+      setDemoError(err instanceof Error ? err.message : 'Erreur lors du seed démo');
+      setShowDemoConfirm(false);
+    },
+  });
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'tournaments', label: 'Tournois', icon: <Trophy size={15} /> },
     { key: 'series', label: 'Séries', icon: <Tag size={15} /> },
     { key: 'registrations', label: 'Inscriptions', icon: <Users size={15} /> },
+    { key: 'pools', label: 'Poules', icon: <Network size={15} /> },
   ];
 
   const tournamentList = (tournaments as Tournament[]) ?? [];
@@ -529,15 +553,53 @@ export default function AdminDashboard() {
         {/* ── Tournaments tab ── */}
         {activeTab === 'tournaments' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-gray-700">Tournois</h2>
-              <button
-                onClick={() => { setShowTournamentForm(true); setEditTournament(null); }}
-                className="flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors"
-              >
-                <Plus size={15} /> Nouveau tournoi
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => { setShowDemoConfirm(true); setDemoError(null); }}
+                  className="flex items-center gap-1.5 text-sm bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg transition-colors"
+                  title="Recharger un jeu de données de démonstration"
+                >
+                  <Sparkles size={15} /> Charger des données demo
+                </button>
+                <button
+                  onClick={() => { setShowTournamentForm(true); setEditTournament(null); }}
+                  className="flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors"
+                >
+                  <Plus size={15} /> Nouveau tournoi
+                </button>
+              </div>
             </div>
+
+            {demoResult && (
+              <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 rounded-lg p-3 border border-green-100">
+                <CheckCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="font-medium">
+                    Tournoi démo « {demoResult.tournament_name} » créé
+                  </div>
+                  <div className="text-xs text-green-600 mt-0.5">
+                    {demoResult.player_count} joueurs · {demoResult.registration_count} inscriptions · {demoResult.table_count} tables
+                  </div>
+                  <div className="text-xs text-green-600 mt-0.5">
+                    {demoResult.login_hint}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDemoResult(null)}
+                  className="text-green-500 hover:text-green-700"
+                >
+                  <XCircle size={14} />
+                </button>
+              </div>
+            )}
+
+            {demoError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg p-3 border border-red-100">
+                <AlertCircle size={14} /> {demoError}
+              </div>
+            )}
 
             {(showTournamentForm || editTournament) && (
               <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -620,6 +682,41 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ── Pools tab ── */}
+        {activeTab === 'pools' && (
+          <div className="space-y-4">
+            {tournamentList.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sélectionner un tournoi
+                </label>
+                <select
+                  value={poolsTournamentId ?? regsOrSeriesTournament?.id ?? ''}
+                  onChange={(e) => setPoolsTournamentId(Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {tournamentList.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {((poolsTournamentId
+              ? tournamentList.find((t) => t.id === poolsTournamentId)
+              : null) ?? regsOrSeriesTournament) ? (
+              <PoolsManagement
+                tournamentId={
+                  ((poolsTournamentId
+                    ? tournamentList.find((t) => t.id === poolsTournamentId)
+                    : null) ?? regsOrSeriesTournament)!.id
+                }
+              />
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-8">Aucun tournoi disponible</p>
+            )}
+          </div>
+        )}
+
         {/* ── Registrations tab ── */}
         {activeTab === 'registrations' && (
           <div className="space-y-4">
@@ -656,6 +753,57 @@ export default function AdminDashboard() {
           tournament={tablesTournament}
           onClose={() => setTablesTournament(null)}
         />
+      )}
+
+      {/* Demo seed confirmation modal */}
+      {showDemoConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Sparkles size={18} className="text-yellow-500" />
+                Charger des données de démonstration
+              </h2>
+              <button
+                onClick={() => setShowDemoConfirm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-lg p-3 border border-red-100">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  Cette action <strong>supprime toutes les données</strong> (hors
+                  comptes admin) et crée un tournoi de démonstration avec 12
+                  joueurs, 3 séries et 4 tables.
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">Confirmer le chargement ?</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowDemoConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => demoMutation.mutate()}
+                disabled={demoMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {demoMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles size={14} />
+                )}
+                Charger la demo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

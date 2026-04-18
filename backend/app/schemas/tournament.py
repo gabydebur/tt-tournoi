@@ -12,6 +12,7 @@ class TournamentCreate(BaseModel):
     location: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    max_series_per_player: int | None = None
 
 
 class TournamentUpdate(BaseModel):
@@ -21,6 +22,7 @@ class TournamentUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     status: TournamentStatus | None = None
+    max_series_per_player: int | None = None
 
 
 class TournamentResponse(BaseModel):
@@ -34,6 +36,7 @@ class TournamentResponse(BaseModel):
     end_date: date | None
     status: TournamentStatus
     created_at: datetime
+    max_series_per_player: int | None = None
 
 
 class PoolPlayerStanding(BaseModel):

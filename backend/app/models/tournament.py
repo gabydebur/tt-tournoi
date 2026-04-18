@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from enum import Enum as PyEnum
 
-from sqlalchemy import Date, DateTime, Enum, String, Text
+from sqlalchemy import Date, DateTime, Enum, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -33,6 +33,7 @@ class Tournament(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+    max_series_per_player: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     series: Mapped[list["Series"]] = relationship(  # noqa: F821

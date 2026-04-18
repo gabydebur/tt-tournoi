@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Match, MatchResultPayload } from '../types';
+import type { Match, MatchResultPayload, MatchSuggestions } from '../types';
 
 export const matchesApi = {
   list: async (tournamentId: number, params?: { day?: number; status?: string }): Promise<Match[]> => {
@@ -9,8 +9,8 @@ export const matchesApi = {
     return data;
   },
 
-  suggestions: async (tournamentId: number): Promise<Match[]> => {
-    const { data } = await apiClient.get<Match[]>(
+  suggestions: async (tournamentId: number): Promise<MatchSuggestions> => {
+    const { data } = await apiClient.get<MatchSuggestions>(
       `/api/tournaments/${tournamentId}/matches/suggestions`
     );
     return data;

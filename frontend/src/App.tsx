@@ -39,7 +39,7 @@ export default function App() {
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/display/:id" element={<LiveDisplay />} />
+      <Route path="/display/:tournamentId" element={<LiveDisplay />} />
 
       {/* Protected routes */}
       <Route

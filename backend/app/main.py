@@ -4,7 +4,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, matches, players, registrations, series, tables, tournaments, websocket
+from app.api import (
+    auth,
+    demo,
+    matches,
+    players,
+    pools,
+    registrations,
+    series,
+    tables,
+    tournaments,
+    websocket,
+)
 from app.database import AsyncSessionLocal, Base, engine
 from app.services.seed import seed_admin
 
@@ -57,6 +68,8 @@ app.include_router(series.router, prefix="/api")
 app.include_router(registrations.router, prefix="/api")
 app.include_router(tables.router, prefix="/api")
 app.include_router(matches.router, prefix="/api")
+app.include_router(pools.router, prefix="/api")
+app.include_router(demo.router, prefix="/api")
 
 # WebSocket routes (no /api prefix)
 app.include_router(websocket.router)
